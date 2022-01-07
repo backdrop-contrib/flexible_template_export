@@ -1,0 +1,357 @@
+<?php
+
+
+/**
+* Implements hook_menu().
+*/
+function flexible_template_export_menu() {
+  $items['flexible_template_export'] = array(
+  'title' => 'flexible_template_export form',
+  'page callback' => 'backdrop_get_form',
+  'page arguments' => array('flexible_template_export_output_form'),
+  'access callback' => TRUE,
+  'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+function flexible_template_export_output_form($form, &$form_state) {
+  $all_flexies = layout_flexible_template_load_all();
+  $options = array();
+  foreach ($all_flexies as $flexies) {
+    $options[$flexies->name] = $flexies->title;
+  }
+  $form['new_template_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('New template name'),
+  );
+  $form['machine_name'] = array(
+    '#type' => 'machine_name',
+    '#title' => t('Internal name'),
+    '#maxlength' => 64,
+    '#machine_name' => array(
+      'source' => array('new_template_name'),
+      'exists' => 'layout_flexible_template_load',
+    ),
+    '#description' => t('The exported template will need a new unique name to avoid clashes with existing  templates.'),
+  );
+  $form['flexies'] = array(
+    '#type' => 'select',
+    '#options' => $options,
+    '#title' => t('Select template to export'),
+  );
+  $form['header_region'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Add a header row.'),
+    '#description' => t('Add a "header" row if it doesn\'t exist.'),
+  );
+  $form['file_components'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Include page components.'),
+    '#description' => t('Include template HTML for messages, page title, tags and action links. Will be placed after the "header" row or after the top row if no "header" row exists.'),
+  );
+  if (!empty($form_state['rendered']) && !empty($form_state['values']['flexies'])) {
+    $default_value = flexible_template_export_output_generate_html($form_state['values']);
+    $form['rendered'] = array(
+      '#type' => 'textarea',
+      '#rows' => 20,
+      '#value' => $default_value,
+      '#access' => !empty($form_state['rendered']),
+      '#title' => t('Rendered template'),
+    );
+  }
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['preview'] = array(
+    '#type' => 'submit',
+    '#submit' => array('flexible_template_export_output_form_preview_submit'),
+    '#value' => empty($form_state['rendered']) ? t('Preview rendered template') : t('Reload preview'),
+    );
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#validate' => array('flexible_template_export_output_form_validate'),
+    '#submit' => array('flexible_template_export_output_form_submit'),
+    '#access' => !empty($form_state['rendered']),
+    '#value' => t('Export'),
+    '#attributes' => array('class' => array('button-primary')),
+    );
+
+  return $form;
+}
+
+function flexible_template_export_output_form_preview_submit($form, &$form_state) {
+  $form_state['rendered'] = TRUE;
+  $form_state['rebuild'] = TRUE;
+}
+
+function flexible_template_export_output_form_validate($form, &$form_state) {
+  $template_name = $form_state['values']['flexies'];
+  $flexible_layout = layout_flexible_template_load($template_name);
+
+  $row_data = flexible_template_export_row_data($flexible_layout);
+
+  $has_header = FALSE;
+  foreach ($row_data as $name => $row) {
+    if ($row['element'] == 'header') {
+      $has_header = TRUE;
+      break;
+    }
+  }
+  if ($has_header && $form_state['values']['header_region']) {
+    form_set_error('header_region', t('A header region already exists in this template.'));
+  }
+  $form_state['has_header'] = $has_header;
+}
+
+function flexible_template_export_output_form_submit($form, &$form_state) {
+  $dir = 'public://template-exports/' . $form_state['values']['machine_name'];
+  if (file_prepare_directory($dir, FILE_CREATE_DIRECTORY)) {
+    // Create the template.
+    if (file_put_contents($dir . '/layout--' . str_replace('_', '-', $form_state['values']['machine_name']) . '.tpl.php', $form_state['values']['rendered']) === FALSE) {
+      form_set_error('actions', t('Template file could not be written.'));
+    }
+    else {
+      $template_name = $form_state['values']['flexies'];
+      $flexible_layout = layout_flexible_template_load($template_name);
+      $row_data = flexible_template_export_row_data($flexible_layout);
+      $info_file = flexible_template_export_info_file($row_data, $form_state['values'], $form_state['values']['header_region']);
+      if (file_put_contents($dir . '/' . $form_state['values']['machine_name'] . '.info', $info_file) === FALSE) {
+        form_set_error('actions', t('Info file could not be written.'));
+      }
+    }
+  }
+}
+
+function flexible_template_export_output_generate_html($form_state_values) {
+  $template_name = $form_state_values['flexies'];
+  $file_components = $form_state_values['file_components'];
+  $flexible_layout = layout_flexible_template_load($template_name);
+
+  $row_data = flexible_template_export_row_data($flexible_layout);
+  $docblock = flexible_template_export_file_docblock($row_data, $form_state_values);
+
+  $has_header = FALSE;
+  foreach ($row_data as $name => $row) {
+    if ($row['element'] == 'header') {
+      $has_header = TRUE;
+      break;
+    }
+  }
+
+dpm($form_state_values);
+  $output = '';
+  $output .= $docblock;
+  $output .= '<div class="layout--flexible layout <?php print implode(\' \', $classes); ?>"<?php print backdrop_attributes($attributes); ?>>' . "\n";
+  $output .= '  <div id="skip-link">' . "\n";
+  $output .= '    <a href="#main-content" class="element-invisible element-focusable"><?php print t(\'Skip to main content\'); ?></a>' . "\n";
+  $output .= '  </div>' . "\n";
+  $output .= '  <div class="layout-flexible-content">' . "\n";
+
+  if (!empty($form_state_values['header_region'])) {
+    $output .= '        <header class="l-header flexible-row">' . "\n";
+    $output .= '          <div class="container container-fluid region_12 ">' . "\n";
+    $output .= '            <div class="l-flexible-row row">' . "\n";
+    $output .= '                <div class="l-col col-md-12">' . "\n";
+    $output .= '                    <?php if (!empty($content[\'header\'])): ?>' . "\n";
+    $output .= '                      <?php print $content[\'header\']; ?>' . "\n";
+    $output .= '                    <?php endif; ?>' . "\n";
+    $output .= '                </div>' . "\n";
+    $output .= '            </div>' . "\n";
+    $output .= '          </div>' . "\n";
+    $output .= '        </header>' . "\n";
+
+    if ($file_components) {
+      $output .= flexible_template_export_file_components();
+      $file_components = FALSE;
+    }
+  }
+  foreach ($row_data as $name => $row) {
+    $row_classes = array('flexible-row');
+    if ($row['element'] == 'header' || $row['element'] == 'footer') {
+      $row_classes[] = 'l-' . $row['element'];
+    }
+    $output .= '      <' . $row['element'] . ' class="' . implode(' ', $row_classes) . '">' . "\n";
+    $output .= '        <div class="' . $row['row_class'] . '">' . "\n";
+    $output .= '          <div class="l-flexible-row row">' . "\n";
+    foreach ($row['regions'] as $region) {
+      $output .= '              <div class="l-col col-md-' . $region['region_md'] . '">' . "\n";
+      $output .= '                  <?php if (!empty($content[\'' . $region['region_machine_name'] . '\'])): ?>' . "\n";
+      $output .= '                    <?php print $content[\'' . $region['region_machine_name'] . '\']; ?>' . "\n";
+      $output .= '                  <?php endif; ?>' . "\n";
+      $output .= '              </div>' . "\n";
+    }
+    $output .= '          </div>' . "\n";
+    $output .= '        </div>' . "\n";
+    $output .= '      </' . $row['element'] . '>' . "\n";
+    // If file components arent placed yet, and there is a header row, placed
+    // after the header row.    
+    if ($file_components && (!$has_header || ($has_header && $row['element'] == 'header'))) {
+      $output .= flexible_template_export_file_components();
+      $file_components = FALSE;
+    }
+  }
+  $output .= '  </div>' . "\n";
+  $output .= '</div>' . "\n";
+
+  return $output;
+}
+
+
+/**
+ * Prepares variables for export.
+ */
+function flexible_template_export_row_data($flexible_layout) {
+  $column_data = layout_flexible_row_styles();
+
+  $rows = $flexible_layout->rows;
+  $row_data = array();
+  foreach ($rows as $name => $row) {
+    $container = ($row['container'] == 'container') ? 'container container-fluid' : (($row['container'] == 'container_fluid') ? 'container-fluid' : 'no-container');
+    $row['row_class'] = $container . ' ' . $row['contains'] . ' ' . $row['classes'];
+    $row['element'] = !empty($row['element']) ? $row['element'] : 'div';
+    if ($row['contains'] == 'region_12') {
+      if (!empty($row['region_names']['region_name_0'])) {
+        $region_name = $row['region_names']['region_name_0'];
+      }
+      else {
+        $region_name = $name;
+      }
+      $region_machine_name = flexible_template_export_region_machine_name($region_name);
+      $row['regions'][$region_machine_name]['region_md'] = '12';
+      $row['regions'][$region_machine_name]['region_name'] = $region_name;
+      $row['regions'][$region_machine_name]['region_machine_name'] = $region_machine_name;
+      $row['regions'][$region_machine_name]['content_key'] = $name . '--0';
+    }
+    else {
+      $col_info = $column_data[$row['contains']];
+      $split = explode(':', $col_info['bootstrap']);
+      $i = 0;
+      foreach ($split as $col) {
+        if (!empty($row['region_names']['region_name_' . $i])) {
+          $region_name = $row['region_names']['region_name_' . $i];
+        }
+        else {
+          $region_name = $name . ' ' . $i;
+        }
+        $region_machine_name = flexible_template_export_region_machine_name($region_name);
+        $row['regions'][$region_machine_name] = array(
+          'region_md' => $col,
+          'region_name' => $region_name,
+          'region_machine_name' => $region_machine_name,
+          'content_key' => $name . '--' . $i,
+        );
+        $i++;
+      }
+    }
+    $row_data[$name] = $row;
+  }
+  return $row_data;
+}
+
+function flexible_template_export_region_machine_name($region_name) {
+  module_load_include('inc', 'system', 'system.admin');
+  return system_transliterate_machine_name(strtolower($region_name), array());
+}
+
+function flexible_template_export_file_docblock($row_data, $form_state_values) {
+  $output = '';
+  $output .= '<?php' . "\n";
+  $output .= '/**' . "\n";
+  $output .= ' * @file' . "\n";
+  $output .= ' * Template for the ' . $form_state_values['new_template_name'] . ' layout.' . "\n";
+  $output .= ' *' . "\n";
+  $output .= ' * Variables:' . "\n";
+  $output .= ' * - $title: The page title, for use in the actual HTML content.' . "\n";
+  $output .= ' * - $messages: Status and error messages. Should be displayed prominently.' . "\n";
+  $output .= ' * - $tabs: Tabs linking to any sub-pages beneath the current page' . "\n";
+  $output .= ' *   (e.g., the view and edit tabs when displaying a node.)' . "\n";
+  $output .= ' * - $action_links: Array of actions local to the page, such as \'Add menu\' on' . "\n";
+  $output .= ' *   the menu administration interface.' . "\n";
+  $output .= ' * - $classes: Array of CSS classes to be added to the layout wrapper.' . "\n";
+  $output .= ' * - $attributes: Array of additional HTML attributes to be added to the layout' . "\n";
+  $output .= ' *     wrapper. Flatten using backdrop_attributes().' . "\n";
+  $output .= ' * - $content: An array of content, each item in the array is keyed to one' . "\n";
+  $output .= ' *   region of the layout. This layout supports the following sections:' . "\n";
+  if ($form_state_values['header_region']) {
+    $output .= ' *   - $content[\'header\']' . "\n";
+  }
+  foreach ($row_data as $row) {
+    foreach ($row['regions'] as $region_machine_name => $region_name) {
+      $output .= ' *   - $content[\'' . $region_machine_name . '\']' . "\n";
+    }
+  }
+  $output .= ' */' . "\n";
+  $output .= '?>' . "\n";
+
+  return $output;
+}
+
+function flexible_template_export_file_components() {
+  $output = '';
+
+  $output .= '      <div class="flexible-row">' . "\n";
+  $output .= '        <div class="container container-fluid">' . "\n";
+  $output .= '          <?php if ($messages): ?>' . "\n";
+  $output .= '            <div class="l-messages" role="status" aria-label="<?php print t(\'Status messages\'); ?>">' . "\n";
+  $output .= '              <?php print $messages; ?>' . "\n";
+  $output .= '            </div>' . "\n";
+  $output .= '          <?php endif; ?>' . "\n";
+  $output .= '' . "\n";
+  $output .= '          <div class="l-page-title">' . "\n";
+  $output .= '            <a id="main-content"></a>' . "\n";
+  $output .= '            <?php print render($title_prefix); ?>' . "\n";
+  $output .= '            <?php if ($title): ?>' . "\n";
+  $output .= '              <h1 class="page-title"><?php print $title; ?></h1>' . "\n";
+  $output .= '            <?php endif; ?>' . "\n";
+  $output .= '            <?php print render($title_suffix); ?>' . "\n";
+  $output .= '          </div>' . "\n";
+  $output .= '' . "\n";
+  $output .= '          <?php if ($tabs): ?>' . "\n";
+  $output .= '            <nav class="tabs" role="tablist" aria-label="<?php print t(\'Admin content navigation tabs.\'); ?>">' . "\n";
+  $output .= '              <?php print $tabs; ?>' . "\n";
+  $output .= '            </nav>' . "\n";
+  $output .= '          <?php endif; ?>' . "\n";
+  $output .= '' . "\n";
+  $output .= '          <?php print $action_links; ?>' . "\n";
+  $output .= '        </div>' . "\n";
+  $output .= '      </div>' . "\n";
+
+  return $output;  
+}
+
+function flexible_template_export_info_file($row_data, $flexible_layout, $header_region = FALSE) {
+  $output = "\n";
+  $output .= 'type = layout' . "\n";
+  $output .= 'name = ' . $flexible_layout['new_template_name'] . "\n";
+  $output .= 'backdrop = 1.x' . "\n";
+  $output .= "\n";
+  $output .= '; Specify regions for this layout.' . "\n";
+
+  if ($header_region) {
+    $output .= 'regions[header] = Header'  . "\n";
+  }
+    
+  foreach ($row_data as $row) {
+    foreach ($row['regions'] as $region) {
+      $output .= 'regions[' . $region['region_machine_name'] . ']     = ' . $region['region_name']  . "\n";
+    }
+  }
+  $output .= "\n";
+  $output .= '; The default region automatically receives the "Main Content" block if needed.' . "\n";
+  $output .= '; default region = content' . "\n";
+  $output .= "\n";
+  $output .= '; Include a file for special preprocessing of this layout\'s variables.' . "\n";
+  $output .= '; file = ' . $flexible_layout['machine_name'] . '.php' . "\n";
+  $output .= "\n";
+  $output .= '; Default stylesheets for this layout' . "\n";
+  $output .= '; stylesheets[all][] = ' . $flexible_layout['machine_name'] . '.css' . "\n";
+  $output .= "\n";
+  $output .= '; Preview' . "\n";
+  $output .= '; preview = ' . $flexible_layout['machine_name'] . '.png' . "\n";
+  $output .= "\n";
+  $output .= '; Include the Bootstrap4 Grid System' . "\n";
+  $output .= 'libraries[] = bootstrap4-gs' . "\n";
+  $output .= "\n";
+
+  return $output;  
+}

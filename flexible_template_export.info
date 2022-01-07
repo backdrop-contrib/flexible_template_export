@@ -1,0 +1,4 @@
+name = Flexible Template Export
+description = Export flexible layout templates to file.
+backdrop = 1.x
+type = module
