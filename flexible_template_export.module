@@ -138,7 +138,6 @@ function flexible_template_export_output_generate_html($form_state_values) {
     }
   }
 
-dpm($form_state_values);
   $output = '';
   $output .= $docblock;
   $output .= '<div class="layout--flexible layout <?php print implode(\' \', $classes); ?>"<?php print backdrop_attributes($attributes); ?>>' . "\n";
