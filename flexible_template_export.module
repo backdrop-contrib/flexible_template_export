@@ -174,7 +174,7 @@ function flexible_template_export_output_generate_html($form_state_values) {
     $output .= '        <div class="' . $row['row_class'] . '">' . "\n";
     $output .= '          <div class="l-flexible-row row">' . "\n";
     foreach ($row['regions'] as $region) {
-      $output .= '              <div class="l-col col-md-' . $region['region_md'] . '">' . "\n";
+      $output .= '              <div class="l-col col-md-' . $region['region_md'] . ' ' . $region['classes'] . '">' . "\n";
       $output .= '                  <?php if (!empty($content[\'' . $region['region_machine_name'] . '\'])): ?>' . "\n";
       $output .= '                    <?php print $content[\'' . $region['region_machine_name'] . '\']; ?>' . "\n";
       $output .= '                  <?php endif; ?>' . "\n";
