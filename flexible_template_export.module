@@ -129,6 +129,7 @@ function flexible_template_export_output_generate_html($form_state_values) {
 
   $row_data = flexible_template_export_row_data($flexible_layout);
   $docblock = flexible_template_export_file_docblock($row_data, $form_state_values);
+  dpm($row_data);
 
   $has_header = FALSE;
   foreach ($row_data as $name => $row) {
@@ -203,6 +204,7 @@ function flexible_template_export_row_data($flexible_layout) {
   $column_data = layout_flexible_row_styles();
 
   $rows = $flexible_layout->rows;
+
   $row_data = array();
   foreach ($rows as $name => $row) {
     $container = ($row['container'] == 'container') ? 'container container-fluid' : (($row['container'] == 'container_fluid') ? 'container-fluid' : 'no-container');
@@ -211,12 +213,21 @@ function flexible_template_export_row_data($flexible_layout) {
     if ($row['contains'] == 'region_12') {
       if (!empty($row['region_names']['region_name_0'])) {
         $region_name = $row['region_names']['region_name_0'];
+        $region_machine_name = flexible_template_export_region_machine_name($region_name);
+      }
+      elseif (!empty($row['region_names']['region_0'])) {
+        $region_name = $row['region_names']['region_0']['label'];
+        $region_machine_name = $row['region_names']['region_0']['name'];
+        if (isset($row['region_names']['region_0']['classes'])) {
+          $classes = $row['region_names']['region_0']['classes'];
+        }
       }
       else {
         $region_name = $name;
+        $region_machine_name = $name;
       }
-      $region_machine_name = flexible_template_export_region_machine_name($region_name);
       $row['regions'][$region_machine_name]['region_md'] = '12';
+      $row['regions'][$region_machine_name]['classes'] = $classes;
       $row['regions'][$region_machine_name]['region_name'] = $region_name;
       $row['regions'][$region_machine_name]['region_machine_name'] = $region_machine_name;
       $row['regions'][$region_machine_name]['content_key'] = $name . '--0';
@@ -226,15 +237,25 @@ function flexible_template_export_row_data($flexible_layout) {
       $split = explode(':', $col_info['bootstrap']);
       $i = 0;
       foreach ($split as $col) {
+        $classes = '';
         if (!empty($row['region_names']['region_name_' . $i])) {
           $region_name = $row['region_names']['region_name_' . $i];
+          $region_machine_name = flexible_template_export_region_machine_name($region_name);
+        }
+        elseif (!empty($row['region_names']['region_' . $i])) {
+          $region_name = $row['region_names']['region_' . $i]['label'];
+          $region_machine_name = $row['region_names']['region_' . $i]['name'];
+          if (isset($row['region_names']['region_' . $i]['classes'])) {
+            $classes = $row['region_names']['region_' . $i]['classes'];
+          }
         }
         else {
           $region_name = $name . ' ' . $i;
+          $region_machine_name = $name . ' ' . $i;
         }
-        $region_machine_name = flexible_template_export_region_machine_name($region_name);
         $row['regions'][$region_machine_name] = array(
           'region_md' => $col,
+          'classes' => $classes,
           'region_name' => $region_name,
           'region_machine_name' => $region_machine_name,
           'content_key' => $name . '--' . $i,
