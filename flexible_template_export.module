@@ -118,6 +118,9 @@ function flexible_template_export_output_form_submit($form, &$form_state) {
       if (file_put_contents($dir . '/' . $form_state['values']['machine_name'] . '.info', $info_file) === FALSE) {
         form_set_error('actions', t('Info file could not be written.'));
       }
+      else {
+        backdrop_set_message(t('Layout template created and saved to your public files directory in the folder "template-exports".'));
+      }
     }
   }
 }
