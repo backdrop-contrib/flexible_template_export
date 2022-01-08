@@ -120,6 +120,9 @@ function flexible_template_export_output_form_submit($form, &$form_state) {
       }
       else {
         backdrop_set_message(t('Layout template created and saved to your public files directory in the folder "template-exports".'));
+        if (file_unmanaged_copy(backdrop_get_path('module', 'flexible_template_export') . '/flexie-export.png', $dir) === FALSE) {
+          backdrop_set_message(t('The template icon was not successfully copied.'), 'warning');
+        }
       }
     }
   }
@@ -132,7 +135,6 @@ function flexible_template_export_output_generate_html($form_state_values) {
 
   $row_data = flexible_template_export_row_data($flexible_layout);
   $docblock = flexible_template_export_file_docblock($row_data, $form_state_values);
-  dpm($row_data);
 
   $has_header = FALSE;
   foreach ($row_data as $name => $row) {
@@ -369,7 +371,7 @@ function flexible_template_export_info_file($row_data, $flexible_layout, $header
   $output .= '; stylesheets[all][] = ' . $flexible_layout['machine_name'] . '.css' . "\n";
   $output .= "\n";
   $output .= '; Preview' . "\n";
-  $output .= '; preview = ' . $flexible_layout['machine_name'] . '.png' . "\n";
+  $output .= 'preview = flexie-export.png' . "\n";
   $output .= "\n";
   $output .= '; Include the Bootstrap4 Grid System' . "\n";
   $output .= 'libraries[] = bootstrap4-gs' . "\n";
