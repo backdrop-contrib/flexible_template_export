@@ -6,7 +6,7 @@
 */
 function flexible_template_export_menu() {
   $items['flexible_template_export'] = array(
-  'title' => 'flexible_template_export form',
+  'title' => 'Export flexible template',
   'page callback' => 'backdrop_get_form',
   'page arguments' => array('flexible_template_export_output_form'),
   'access callback' => TRUE,
