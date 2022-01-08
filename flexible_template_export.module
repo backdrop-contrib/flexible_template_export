@@ -206,20 +206,21 @@ function flexible_template_export_row_data($flexible_layout) {
   $rows = $flexible_layout->rows;
 
   $row_data = array();
-  foreach ($rows as $name => $row) {
-    $container = ($row['container'] == 'container') ? 'container container-fluid' : (($row['container'] == 'container_fluid') ? 'container-fluid' : 'no-container');
-    $row['row_class'] = $container . ' ' . $row['contains'] . ' ' . $row['classes'];
-    $row['element'] = !empty($row['element']) ? $row['element'] : 'div';
-    if ($row['contains'] == 'region_12') {
-      if (!empty($row['region_names']['region_name_0'])) {
-        $region_name = $row['region_names']['region_name_0'];
+  foreach ($rows as $name => $row_info) {
+    $row = array();
+    $container = ($row_info['container'] == 'container') ? 'container container-fluid' : (($row_info['container'] == 'container_fluid') ? 'container-fluid' : 'no-container');
+    $row['row_class'] = $container . ' ' . $row_info['contains'] . ' ' . $row_info['classes'];
+    $row['element'] = !empty($row_info['element']) ? $row_info['element'] : 'div';
+    if ($row_info['contains'] == 'region_12') {
+      if (!empty($row_info['region_names']['region_name_0'])) {
+        $region_name = $row_info['region_names']['region_name_0'];
         $region_machine_name = flexible_template_export_region_machine_name($region_name);
       }
-      elseif (!empty($row['region_names']['region_0'])) {
-        $region_name = $row['region_names']['region_0']['label'];
-        $region_machine_name = $row['region_names']['region_0']['name'];
-        if (isset($row['region_names']['region_0']['classes'])) {
-          $classes = $row['region_names']['region_0']['classes'];
+      elseif (!empty($row_info['region_names']['region_0'])) {
+        $region_name = $row_info['region_names']['region_0']['label'];
+        $region_machine_name = $row_info['region_names']['region_0']['name'];
+        if (isset($row_info['region_names']['region_0']['classes'])) {
+          $classes = $row_info['region_names']['region_0']['classes'];
         }
       }
       else {
@@ -230,23 +231,22 @@ function flexible_template_export_row_data($flexible_layout) {
       $row['regions'][$region_machine_name]['classes'] = $classes;
       $row['regions'][$region_machine_name]['region_name'] = $region_name;
       $row['regions'][$region_machine_name]['region_machine_name'] = $region_machine_name;
-      $row['regions'][$region_machine_name]['content_key'] = $name . '--0';
     }
     else {
-      $col_info = $column_data[$row['contains']];
+      $col_info = $column_data[$row_info['contains']];
       $split = explode(':', $col_info['bootstrap']);
       $i = 0;
       foreach ($split as $col) {
         $classes = '';
-        if (!empty($row['region_names']['region_name_' . $i])) {
-          $region_name = $row['region_names']['region_name_' . $i];
+        if (!empty($row_info['region_names']['region_name_' . $i])) {
+          $region_name = $row_info['region_names']['region_name_' . $i];
           $region_machine_name = flexible_template_export_region_machine_name($region_name);
         }
-        elseif (!empty($row['region_names']['region_' . $i])) {
-          $region_name = $row['region_names']['region_' . $i]['label'];
-          $region_machine_name = $row['region_names']['region_' . $i]['name'];
-          if (isset($row['region_names']['region_' . $i]['classes'])) {
-            $classes = $row['region_names']['region_' . $i]['classes'];
+        elseif (!empty($row_info['region_names']['region_' . $i])) {
+          $region_name = $row_info['region_names']['region_' . $i]['label'];
+          $region_machine_name = $row_info['region_names']['region_' . $i]['name'];
+          if (isset($row_info['region_names']['region_' . $i]['classes'])) {
+            $classes = $row_info['region_names']['region_' . $i]['classes'];
           }
         }
         else {
@@ -258,7 +258,6 @@ function flexible_template_export_row_data($flexible_layout) {
           'classes' => $classes,
           'region_name' => $region_name,
           'region_machine_name' => $region_machine_name,
-          'content_key' => $name . '--' . $i,
         );
         $i++;
       }
