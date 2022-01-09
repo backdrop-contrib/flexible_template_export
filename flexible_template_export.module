@@ -79,11 +79,19 @@ function flexible_template_export_output_form($form, &$form_state) {
   return $form;
 }
 
+
+/**
+ * Form submit handler for flexible_template_export_output_form() that reloads
+ * the form.
+ */
 function flexible_template_export_output_form_preview_submit($form, &$form_state) {
   $form_state['rendered'] = TRUE;
   $form_state['rebuild'] = TRUE;
 }
 
+/**
+ * Form validate handler for flexible_template_export_output_form().
+ */
 function flexible_template_export_output_form_validate($form, &$form_state) {
   $template_name = $form_state['values']['flexies'];
   $flexible_layout = layout_flexible_template_load($template_name);
@@ -103,6 +111,10 @@ function flexible_template_export_output_form_validate($form, &$form_state) {
   $form_state['has_header'] = $has_header;
 }
 
+/**
+ * Form submit handler for flexible_template_export_output_form() that
+ * generates the layout package.
+ */
 function flexible_template_export_output_form_submit($form, &$form_state) {
   $dir = 'public://template-exports/' . $form_state['values']['machine_name'];
   if (file_prepare_directory($dir, FILE_CREATE_DIRECTORY)) {
@@ -128,6 +140,9 @@ function flexible_template_export_output_form_submit($form, &$form_state) {
   }
 }
 
+/**
+ * Generate the HTML for the layout template file (tpl.php).
+ */
 function flexible_template_export_output_generate_html($form_state_values) {
   $template_name = $form_state_values['flexies'];
   $file_components = $form_state_values['file_components'];
@@ -203,7 +218,7 @@ function flexible_template_export_output_generate_html($form_state_values) {
 
 
 /**
- * Prepares variables for export.
+ * Prepares variables about the template rows.
  */
 function flexible_template_export_row_data($flexible_layout) {
   $column_data = layout_flexible_row_styles();
@@ -272,11 +287,17 @@ function flexible_template_export_row_data($flexible_layout) {
   return $row_data;
 }
 
+/**
+ * Generate a machine name from a template human-readable name.
+ */
 function flexible_template_export_region_machine_name($region_name) {
   module_load_include('inc', 'system', 'system.admin');
   return system_transliterate_machine_name(strtolower($region_name), array());
 }
 
+/**
+ * Generate the HTML for the layout template file docblock.
+ */
 function flexible_template_export_file_docblock($row_data, $form_state_values) {
   $output = '';
   $output .= '<?php' . "\n";
@@ -310,6 +331,9 @@ function flexible_template_export_file_docblock($row_data, $form_state_values) {
   return $output;
 }
 
+/**
+ * Generate the HTML for the layout template file page components.
+ */
 function flexible_template_export_file_components() {
   $output = '';
 
@@ -343,6 +367,9 @@ function flexible_template_export_file_components() {
   return $output;  
 }
 
+/**
+ * Generate the HTML for the layout template info file.
+ */
 function flexible_template_export_info_file($row_data, $flexible_layout, $header_region = FALSE) {
   $output = "\n";
   $output .= 'type = layout' . "\n";
